@@ -23,7 +23,11 @@ func main() {
 		log.Fatalf("Missing measurements filename")
 	}
 
-	f, err := os.Open(os.Args[1])
+	process(os.Args[1])
+}
+
+func process(filename string) {
+	f, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Open: %v", err)
 	}
@@ -96,6 +100,19 @@ func main() {
 	fmt.Println("}")
 }
 
-func round(v float64) float64 {
-	return math.Round(v*10.0) / 10.0
+func round(x float64) float64 {
+	return roundJava(x*10.0) / 10.0
+}
+
+// roundJava returns the closest integer to the argument, with ties
+// rounding to positive infinity, see java's Math.round
+func roundJava(x float64) float64 {
+	t := math.Trunc(x)
+	if x < 0.0 && t-x == 0.5 {
+		return t
+	}
+	if math.Abs(x-t) >= 0.5 {
+		return t + math.Copysign(1, x)
+	}
+	return t
 }

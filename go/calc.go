@@ -70,6 +70,10 @@ func process(filename string) map[string]*measurement {
 		}
 	}()
 
+	return processChunk(data)
+}
+
+func processChunk(data []byte) map[string]*measurement {
 	measurements := make(map[string]*measurement)
 
 	scanner := bufio.NewScanner(bytes.NewReader(data))

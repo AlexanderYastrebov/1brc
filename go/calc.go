@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"log"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"syscall"
 )
 
@@ -76,12 +74,24 @@ func process(filename string) map[string]*measurement {
 func processChunk(data []byte) map[string]*measurement {
 	measurements := make(map[string]*measurement)
 
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		line := scanner.Text()
-		id, val, _ := strings.Cut(line, ";")
+	// assume valid input
+	for {
+		semiPos := bytes.IndexByte(data, ';')
+		if semiPos == -1 {
+			break
+		}
+		id := string(data[:semiPos])
 
-		temp, _ := strconv.ParseFloat(val, 64)
+		data = data[semiPos+1:]
+		nlPos := bytes.IndexByte(data, '\n')
+
+		var temp float64
+		if nlPos == -1 {
+			temp, _ = strconv.ParseFloat(string(data), 64)
+		} else {
+			temp, _ = strconv.ParseFloat(string(data[:nlPos]), 64)
+			data = data[nlPos+1:]
+		}
 
 		m := measurements[id]
 		if m == nil {
@@ -96,6 +106,10 @@ func processChunk(data []byte) map[string]*measurement {
 			m.max = max(m.max, temp)
 			m.sum += temp
 			m.count++
+		}
+
+		if nlPos == -1 {
+			break
 		}
 	}
 

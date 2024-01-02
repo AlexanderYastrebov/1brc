@@ -6,8 +6,11 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -68,7 +71,60 @@ func process(filename string) map[string]*measurement {
 		}
 	}()
 
-	return processChunk(data)
+	ncpu := runtime.NumCPU()
+	chunkSize := len(data) / ncpu
+	if chunkSize == 0 {
+		log.Fatalf("chunk size is zero due to size=%d and ncpu=%d", size, ncpu)
+	}
+
+	chunks := make([]int, 0, ncpu)
+	offset := 0
+	for {
+		offset += chunkSize
+		if offset >= len(data) {
+			chunks = append(chunks, len(data))
+			break
+		}
+
+		nlPos := bytes.IndexByte(data[offset:], '\n')
+		if nlPos == -1 {
+			chunks = append(chunks, len(data))
+			break
+		} else {
+			offset += nlPos
+			chunks = append(chunks, offset)
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(chunks))
+
+	results := make([]map[string]*measurement, len(chunks))
+	start := 0
+	for i, chunk := range chunks {
+		go func(data []byte, i int) {
+			results[i] = processChunk(data)
+			wg.Done()
+		}(data[start:chunk], i)
+		start = chunk
+	}
+	wg.Wait()
+
+	measurements := make(map[string]*measurement)
+	for _, r := range results {
+		for id, rm := range r {
+			m := measurements[id]
+			if m == nil {
+				measurements[id] = rm
+			} else {
+				m.min = min(m.min, rm.min)
+				m.max = max(m.max, rm.max)
+				m.sum += rm.sum
+				m.count += rm.count
+			}
+		}
+	}
+	return measurements
 }
 
 func processChunk(data []byte) map[string]*measurement {
@@ -80,7 +136,7 @@ func processChunk(data []byte) map[string]*measurement {
 		if semiPos == -1 {
 			break
 		}
-		id := string(data[:semiPos])
+		id := strings.TrimLeft(string(data[:semiPos]), "\n")
 
 		data = data[semiPos+1:]
 		nlPos := bytes.IndexByte(data, '\n')
@@ -112,7 +168,6 @@ func processChunk(data []byte) map[string]*measurement {
 			break
 		}
 	}
-
 	return measurements
 }
 
@@ -125,10 +180,13 @@ func round(x float64) float64 {
 func roundJava(x float64) float64 {
 	t := math.Trunc(x)
 	if x < 0.0 && t-x == 0.5 {
-		return t
+		//return t
+	} else if math.Abs(x-t) >= 0.5 {
+		t += math.Copysign(1, x)
 	}
-	if math.Abs(x-t) >= 0.5 {
-		return t + math.Copysign(1, x)
+
+	if t == 0 { // check -0
+		return 0.0
 	}
 	return t
 }

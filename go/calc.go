@@ -23,10 +23,26 @@ func main() {
 		log.Fatalf("Missing measurements filename")
 	}
 
-	process(os.Args[1])
+	measurements := process(os.Args[1])
+
+	ids := make([]string, 0, len(measurements))
+	for id := range measurements {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	fmt.Print("{")
+	for i, id := range ids {
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		m := measurements[id]
+		fmt.Printf("%s=%.1f/%.1f/%.1f", id, round(m.min), round(m.sum/float64(m.count)), round(m.max))
+	}
+	fmt.Println("}")
 }
 
-func process(filename string) {
+func process(filename string) map[string]*measurement {
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Open: %v", err)
@@ -79,25 +95,7 @@ func process(filename string) {
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-
-	ids := make([]string, 0, len(measurements))
-	for id := range measurements {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-
-	fmt.Print("{")
-	for i, id := range ids {
-		if i > 0 {
-			fmt.Print(", ")
-		}
-		m := measurements[id]
-		fmt.Printf("%s=%.1f/%.1f/%.1f", id, round(m.min), round(m.sum/float64(m.count)), round(m.max))
-	}
-	fmt.Println("}")
+	return measurements
 }
 
 func round(x float64) float64 {

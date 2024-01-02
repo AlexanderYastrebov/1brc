@@ -23,3 +23,23 @@ func TestRoundJava(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkProcess(b *testing.B) {
+	// $ ./create_measurements.sh 1000000 && mv measurements.txt measurements-106.txt
+	// Created file with 1,000,000 measurements in 514 ms
+	const filename = "../measurements-106.txt"
+
+	measurements := process(filename)
+	rows := int64(0)
+	for _, m := range measurements {
+		rows += m.count
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.ReportMetric(float64(rows), "rows/op")
+
+	for i := 0; i < b.N; i++ {
+		process(filename)
+	}
+}

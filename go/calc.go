@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -144,9 +143,9 @@ func processChunk(data []byte) map[string]*measurement {
 
 		var temp float64
 		if nlPos == -1 {
-			temp, _ = strconv.ParseFloat(string(data), 64)
+			temp = parseNumber(data)
 		} else {
-			temp, _ = strconv.ParseFloat(string(data[:nlPos]), 64)
+			temp = parseNumber(data[:nlPos])
 			data = data[nlPos+1:]
 		}
 
@@ -190,4 +189,21 @@ func roundJava(x float64) float64 {
 		return 0.0
 	}
 	return t
+}
+
+// parseNumber reads decimal number with a single digit after the dot, e.g. 12.3
+func parseNumber(data []byte) float64 {
+	sign := 1.0
+	result := 0.0
+	for _, b := range data {
+		switch b {
+		case '-':
+			sign = -1.0
+		case '.':
+			// skip
+		default:
+			result = 10.0*result + float64(b-'0')
+		}
+	}
+	return sign * result / 10.0
 }

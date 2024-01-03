@@ -33,6 +33,7 @@ func TestParseNumber(t *testing.T) {
 		value    string
 		expected string
 	}{
+		{value: "-12.3", expected: "-12.3"},
 		{value: "-1.5", expected: "-1.5"},
 		{value: "-1.0", expected: "-1.0"},
 		{value: "0.0", expected: "0.0"},

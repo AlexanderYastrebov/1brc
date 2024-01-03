@@ -17,4 +17,5 @@
 
 
 JAVA_OPTS="--enable-preview --add-modules jdk.incubator.vector"
-time java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_padreati
+# Run in a subshell to suppress java "WARNING: Using incubator modules: jdk.incubator.vector"
+time /bin/sh -c "java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_padreati 2>/dev/null"

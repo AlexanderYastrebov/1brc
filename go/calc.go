@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"syscall"
 )
@@ -91,7 +90,7 @@ func process(filename string) map[string]*measurement {
 			chunks = append(chunks, len(data))
 			break
 		} else {
-			offset += nlPos
+			offset += nlPos + 1
 			chunks = append(chunks, offset)
 		}
 	}
@@ -136,7 +135,7 @@ func processChunk(data []byte) map[string]*measurement {
 		if semiPos == -1 {
 			break
 		}
-		id := strings.TrimLeft(string(data[:semiPos]), "\n")
+		id := string(data[:semiPos])
 
 		data = data[semiPos+1:]
 		nlPos := bytes.IndexByte(data, '\n')

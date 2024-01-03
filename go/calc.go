@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"hash/maphash"
 	"log"
 	"math"
 	"os"
@@ -126,12 +127,12 @@ func process(filename string) map[string]*measurement {
 	return measurements
 }
 
+var maphashSeed = maphash.MakeSeed()
+
 func processChunk(data []byte) map[string]*measurement {
-	// assume up to idSize first bytes of ids are unique,
-	// use them as a measurements key and keep mapping to the full value.
-	const idSize = 16
-	measurements := make(map[[idSize]byte]*measurement)
-	ids := make(map[[idSize]byte]string)
+	// use hash of id as measurements key and keep mapping to the value
+	measurements := make(map[uint64]*measurement)
+	ids := make(map[uint64][]byte)
 
 	// assume valid input
 	for {
@@ -140,9 +141,8 @@ func processChunk(data []byte) map[string]*measurement {
 			break
 		}
 
-		var id [idSize]byte
-		copy(id[:], data[:semiPos])
-		origData := data
+		idData := data[:semiPos]
+		id := maphash.Bytes(maphashSeed, idData)
 
 		data = data[semiPos+1:]
 		nlPos := bytes.IndexByte(data, '\n')
@@ -162,7 +162,7 @@ func processChunk(data []byte) map[string]*measurement {
 				sum:   temp,
 				count: 1,
 			}
-			ids[id] = string(origData[:semiPos])
+			ids[id] = idData
 		} else {
 			m.min = min(m.min, temp)
 			m.max = max(m.max, temp)
@@ -177,7 +177,7 @@ func processChunk(data []byte) map[string]*measurement {
 
 	result := make(map[string]*measurement, len(measurements))
 	for id, m := range measurements {
-		result[ids[id]] = m
+		result[string(ids[id])] = m
 	}
 	return result
 }

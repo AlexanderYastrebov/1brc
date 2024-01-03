@@ -71,13 +71,14 @@ func process(filename string) map[string]*measurement {
 		}
 	}()
 
-	ncpu := runtime.NumCPU()
-	chunkSize := len(data) / ncpu
+	nChunks := runtime.NumCPU()
+
+	chunkSize := len(data) / nChunks
 	if chunkSize == 0 {
-		log.Fatalf("chunk size is zero due to size=%d and ncpu=%d", size, ncpu)
+		log.Fatalf("chunk size is zero due to size=%d and nChunks=%d", size, nChunks)
 	}
 
-	chunks := make([]int, 0, ncpu)
+	chunks := make([]int, 0, nChunks)
 	offset := 0
 	for {
 		offset += chunkSize

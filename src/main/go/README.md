@@ -19,18 +19,21 @@ $ wc -l measurements.txt
 $ export TIME="%e"
 
 $ for c in ./calculate_average*.sh; do (echo -n "$c " && $c >/dev/null) 2>&1 ; done | sort -k2 -g
-./calculate_average_AlexanderYastrebov.sh 19.45
-./calculate_average_ebarlas.sh 20.50
-./calculate_average_spullara.sh 24.70
-./calculate_average_palmr.sh 25.11
-./calculate_average_seijikun.sh 59.96
-./calculate_average_bjhara.sh 65.13
-./calculate_average_criccomini.sh 74.26
-./calculate_average_truelive.sh 85.95
-./calculate_average_padreati.sh 89.81
-./calculate_average_khmarbaise.sh 152.54
-./calculate_average_itaske.sh 172.98
-./calculate_average_kuduwa-keshavram.sh 173.64
-./calculate_average_royvanrijn.sh 178.19
-./calculate_average.sh 311.24
+./calculate_average_AlexanderYastrebov.sh 20.49
+./calculate_average_ebarlas.sh 21.70
+./calculate_average_ddimtirov.sh 23.75
+./calculate_average_royvanrijn.sh 25.26
+./calculate_average_spullara.sh 29.70
+./calculate_average_palmr.sh 34.25
+./calculate_average_filiphr.sh 45.20
+./calculate_average_richardstartin.sh 58.03
+./calculate_average_bjhara.sh 64.41
+./calculate_average_seijikun.sh 77.34
+./calculate_average_truelive.sh 91.86
+./calculate_average_criccomini.sh 95.59
+./calculate_average_khmarbaise.sh 209.08
+./calculate_average_kuduwa-keshavram.sh 241.50
+./calculate_average_padreati.sh 245.11
+./calculate_average_itaske.sh 251.12
+./calculate_average.sh 357.22
 ```

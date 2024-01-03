@@ -46,6 +46,14 @@ func TestParseNumber(t *testing.T) {
 	}
 }
 
+func BenchmarkParseNumber(b *testing.B) {
+	data := []byte("-12.3")
+
+	for i := 0; i < b.N; i++ {
+		_ = parseNumber(data)
+	}
+}
+
 func BenchmarkProcess(b *testing.B) {
 	// $ ./create_measurements.sh 1000000 && mv measurements.txt measurements-106.txt
 	// Created file with 1,000,000 measurements in 514 ms

@@ -127,7 +127,11 @@ func process(filename string) map[string]*measurement {
 }
 
 func processChunk(data []byte) map[string]*measurement {
-	measurements := make(map[string]*measurement)
+	// assume up to idSize first bytes of ids are unique,
+	// use them as a measurements key and keep mapping to the full value.
+	const idSize = 16
+	measurements := make(map[[idSize]byte]*measurement)
+	ids := make(map[[idSize]byte]string)
 
 	// assume valid input
 	for {
@@ -135,7 +139,10 @@ func processChunk(data []byte) map[string]*measurement {
 		if semiPos == -1 {
 			break
 		}
-		id := string(data[:semiPos])
+
+		var id [idSize]byte
+		copy(id[:], data[:semiPos])
+		origData := data
 
 		data = data[semiPos+1:]
 		nlPos := bytes.IndexByte(data, '\n')
@@ -148,14 +155,14 @@ func processChunk(data []byte) map[string]*measurement {
 			data = data[nlPos+1:]
 		}
 
-		m := measurements[id]
-		if m == nil {
+		if m, ok := measurements[id]; !ok {
 			measurements[id] = &measurement{
 				min:   temp,
 				max:   temp,
 				sum:   temp,
 				count: 1,
 			}
+			ids[id] = string(origData[:semiPos])
 		} else {
 			m.min = min(m.min, temp)
 			m.max = max(m.max, temp)
@@ -167,7 +174,12 @@ func processChunk(data []byte) map[string]*measurement {
 			break
 		}
 	}
-	return measurements
+
+	result := make(map[string]*measurement, len(measurements))
+	for id, m := range measurements {
+		result[ids[id]] = m
+	}
+	return result
 }
 
 func round(x float64) float64 {

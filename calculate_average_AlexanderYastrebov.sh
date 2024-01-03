@@ -15,7 +15,6 @@
 #  limitations under the License.
 #
 
-cd go
-go build -o bin/
+(cd src/main/go/ && go build -o ../../../target/)
 
-time ./bin/1brc ../measurements.txt
+time target/1brc measurements.txt

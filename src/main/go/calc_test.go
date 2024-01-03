@@ -48,7 +48,7 @@ func TestParseNumber(t *testing.T) {
 func BenchmarkProcess(b *testing.B) {
 	// $ ./create_measurements.sh 1000000 && mv measurements.txt measurements-106.txt
 	// Created file with 1,000,000 measurements in 514 ms
-	const filename = "../measurements-106.txt"
+	const filename = "../../../measurements-106.txt"
 
 	measurements := process(filename)
 	rows := int64(0)

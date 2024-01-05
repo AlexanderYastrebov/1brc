@@ -14,8 +14,7 @@ import (
 )
 
 type measurement struct {
-	min, max, sum float64
-	count         int64
+	min, max, sum, count int64
 }
 
 func main() {
@@ -37,7 +36,7 @@ func main() {
 			fmt.Print(", ")
 		}
 		m := measurements[id]
-		fmt.Printf("%s=%.1f/%.1f/%.1f", id, round(m.min), round(m.sum/float64(m.count)), round(m.max))
+		fmt.Printf("%s=%.1f/%.1f/%.1f", id, round(float64(m.min)/10.0), round(float64(m.sum)/10.0/float64(m.count)), round(float64(m.max)/10.0))
 	}
 	fmt.Println("}")
 }
@@ -203,23 +202,25 @@ func roundJava(x float64) float64 {
 }
 
 // parseNumber reads decimal number that matches "^-?[0-9]{1,2}[.][0-9]" pattern,
-// e.g.: -12.3, -3.4, 5.6, 78.9
-func parseNumber(data []byte) float64 {
-	mul := 0.1
-	if data[0] == '-' {
+// e.g.: -12.3, -3.4, 5.6, 78.9 and return the value*10, i.e. -123, -34, 56, 789.
+func parseNumber(data []byte) int64 {
+	negative := data[0] == '-'
+	if negative {
 		data = data[1:]
-		mul = -0.1
 	}
 
-	result := 0
+	var result int64
 	switch len(data) {
 	// 1.2
 	case 3:
-		result = int(data[0])*10 + int(data[2]) - '0'*(10+1)
+		result = int64(data[0])*10 + int64(data[2]) - '0'*(10+1)
 	// 12.3
 	case 4:
-		result = int(data[0])*100 + int(data[1])*10 + int(data[3]) - '0'*(100+10+1)
+		result = int64(data[0])*100 + int64(data[1])*10 + int64(data[3]) - '0'*(100+10+1)
 	}
 
-	return mul * float64(result)
+	if negative {
+		return -result
+	}
+	return result
 }

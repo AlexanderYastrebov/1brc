@@ -33,22 +33,22 @@ func TestParseNumber(t *testing.T) {
 		value    string
 		expected string
 	}{
-		{value: "-99.9", expected: "-99.9"},
-		{value: "-12.3", expected: "-12.3"},
-		{value: "-1.5", expected: "-1.5"},
-		{value: "-1.0", expected: "-1.0"},
-		{value: "0.0", expected: "0.0"},
-		{value: "0.3", expected: "0.3"},
-		{value: "12.3", expected: "12.3"},
-		{value: "99.9", expected: "99.9"},
+		{value: "-99.9", expected: "-999"},
+		{value: "-12.3", expected: "-123"},
+		{value: "-1.5", expected: "-15"},
+		{value: "-1.0", expected: "-10"},
+		{value: "0.0", expected: "0"},
+		{value: "0.3", expected: "3"},
+		{value: "12.3", expected: "123"},
+		{value: "99.9", expected: "999"},
 	} {
-		if number := parseNumber([]byte(tc.value)); fmt.Sprintf("%.1f", number) != tc.expected {
-			t.Errorf("Wrong parsing of %v, expected: %s, got: %.1f", tc.value, tc.expected, number)
+		if number := parseNumber([]byte(tc.value)); fmt.Sprintf("%d", number) != tc.expected {
+			t.Errorf("Wrong parsing of %v, expected: %s, got: %d", tc.value, tc.expected, number)
 		}
 	}
 }
 
-var parseNumberSink float64
+var parseNumberSink int64
 
 func BenchmarkParseNumber(b *testing.B) {
 	data1 := []byte("1.2")

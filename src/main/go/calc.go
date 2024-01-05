@@ -147,13 +147,13 @@ func processChunk(data []byte) map[string]*measurement {
 		data = data[semiPos+1:]
 		nlPos := bytes.IndexByte(data, '\n')
 
-		var temp float64
-		if nlPos == -1 {
-			temp = parseNumber(data)
-		} else {
-			temp = parseNumber(data[:nlPos])
+		numData := data
+		if nlPos != -1 {
+			numData = data[:nlPos]
 			data = data[nlPos+1:]
 		}
+
+		temp := parseNumber(numData)
 
 		if m, ok := measurements[id]; !ok {
 			measurements[id] = &measurement{
@@ -202,19 +202,24 @@ func roundJava(x float64) float64 {
 	return t
 }
 
-// parseNumber reads decimal number with a single digit after the dot, e.g. 12.3
+// parseNumber reads decimal number that matches "^-?[0-9]{1,2}[.][0-9]" pattern,
+// e.g.: -12.3, -3.4, 5.6, 78.9
 func parseNumber(data []byte) float64 {
-	sign := 1.0
-	result := 0.0
-	for _, b := range data {
-		switch b {
-		case '-':
-			sign = -1.0
-		case '.':
-			// skip
-		default:
-			result = 10.0*result + float64(b-'0')
-		}
+	mul := 0.1
+	if data[0] == '-' {
+		data = data[1:]
+		mul = -0.1
 	}
-	return sign * result / 10.0
+
+	result := 0
+	switch len(data) {
+	// 1.2
+	case 3:
+		result = int(data[0])*10 + int(data[2]) - '0'*(10+1)
+	// 12.3
+	case 4:
+		result = int(data[0])*100 + int(data[1])*10 + int(data[3]) - '0'*(100+10+1)
+	}
+
+	return mul * float64(result)
 }

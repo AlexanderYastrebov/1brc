@@ -17,5 +17,5 @@
 
 JAVA_OPTS=""
 source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk use java 21.0.1-graal 1>&2
+sdk use java 21.0.1-graal 2>&1>/dev/null
 /usr/bin/time java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_spullara

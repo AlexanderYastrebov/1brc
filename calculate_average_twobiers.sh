@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #  Copyright 2023 The original authors
 #
@@ -16,6 +16,6 @@
 #
 
 source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk use java 21.0.1-tem 1>&2
+sdk use java 21.0.1-tem 2>&1>/dev/null
 JAVA_OPTS="-XX:+UseShenandoahGC -XX:+UseStringDeduplication -XX:+UseTransparentHugePages -da"
-time java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_twobiers
+/usr/bin/time java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_twobiers

@@ -46,11 +46,14 @@ func TestParseNumber(t *testing.T) {
 	}
 }
 
+var parseNumberSink float64
+
 func BenchmarkParseNumber(b *testing.B) {
-	data := []byte("-12.3")
+	data1 := []byte("1.2")
+	data2 := []byte("-12.3")
 
 	for i := 0; i < b.N; i++ {
-		_ = parseNumber(data)
+		parseNumberSink = parseNumber(data1) + parseNumber(data2)
 	}
 }
 

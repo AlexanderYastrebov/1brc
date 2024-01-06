@@ -134,7 +134,7 @@ func processChunk(data []byte) map[string]*measurement {
 	ids := make(map[uint64][]byte)
 
 	// assume valid input
-	for {
+	for len(data) > 0 {
 		semiPos := bytes.IndexByte(data, ';')
 		if semiPos == -1 {
 			break
@@ -147,17 +147,30 @@ func processChunk(data []byte) map[string]*measurement {
 
 		data = data[semiPos+1:]
 
-		nlPos := bytes.IndexByte(data, '\n')
+		var temp int64
+		// parseNumber
+		{
+			negative := data[0] == '-'
+			if negative {
+				data = data[1:]
+			}
 
-		numData := data
-		if nlPos != -1 {
-			_ = data[nlPos] // eliminate bound check
+			_ = data[3]
+			if data[1] == '.' {
+				// 1.2\n
+				temp = int64(data[0])*10 + int64(data[2]) - '0'*(10+1)
+				data = data[4:]
+				// 12.3\n
+			} else {
+				_ = data[4]
+				temp = int64(data[0])*100 + int64(data[1])*10 + int64(data[3]) - '0'*(100+10+1)
+				data = data[5:]
+			}
 
-			numData = data[:nlPos]
-			data = data[nlPos+1:]
+			if negative {
+				temp = -temp
+			}
 		}
-
-		temp := parseNumber(numData)
 
 		if m, ok := measurements[id]; !ok {
 			measurements[id] = &measurement{
@@ -174,9 +187,6 @@ func processChunk(data []byte) map[string]*measurement {
 			m.count++
 		}
 
-		if nlPos == -1 {
-			break
-		}
 	}
 
 	result := make(map[string]*measurement, len(measurements))

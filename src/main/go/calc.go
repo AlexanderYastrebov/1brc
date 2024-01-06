@@ -140,14 +140,19 @@ func processChunk(data []byte) map[string]*measurement {
 			break
 		}
 
+		_ = data[semiPos] // eliminate bound check
+
 		idData := data[:semiPos]
 		id := maphash.Bytes(maphashSeed, idData)
 
 		data = data[semiPos+1:]
+
 		nlPos := bytes.IndexByte(data, '\n')
 
 		numData := data
 		if nlPos != -1 {
+			_ = data[nlPos] // eliminate bound check
+
 			numData = data[:nlPos]
 			data = data[nlPos+1:]
 		}

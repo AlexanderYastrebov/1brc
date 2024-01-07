@@ -2,15 +2,20 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math"
+	"math/bits"
 	"os"
 	"runtime"
 	"sort"
 	"sync"
 	"syscall"
 )
+
+// See comment in process function for explanation.
+const chunkOverlap = 4
 
 type measurement struct {
 	min, max, sum, count int64
@@ -79,18 +84,32 @@ func process(data []byte) map[string]*measurement {
 		log.Fatalf("chunk size is zero due to size=%d and nChunks=%d", len(data), nChunks)
 	}
 
+	// Split data into chunks and process last row separately.
+	// Each chunk ends with chunkOverlap bytes of the next chunk data.
+	// This allows use of binary.LittleEndian.Uint64() to read 8 bytes at once.
+	// Minimal row is "a;1.2\n" so we need to read up to 4 bytes of the next chunk
+	// therefore chunkOverlap is 4.
+
+	lastRowOffset := bytes.LastIndexByte(data[:len(data)-1], '\n')
+	if lastRowOffset == -1 {
+		// single row
+		return parseRow(data)
+	}
+
+	lastRowOffset++
+
 	chunks := make([]int, 0, nChunks)
 	offset := 0
 	for offset < len(data) {
 		offset += chunkSize
-		if offset >= len(data) {
-			chunks = append(chunks, len(data))
+		if offset >= lastRowOffset {
+			chunks = append(chunks, lastRowOffset)
 			break
 		}
 
-		nlPos := bytes.IndexByte(data[offset:], '\n')
+		nlPos := bytes.IndexByte(data[offset:lastRowOffset], '\n')
 		if nlPos == -1 {
-			chunks = append(chunks, len(data))
+			chunks = append(chunks, lastRowOffset)
 			break
 		} else {
 			offset += nlPos + 1
@@ -101,15 +120,22 @@ func process(data []byte) map[string]*measurement {
 	var wg sync.WaitGroup
 	wg.Add(len(chunks))
 
-	results := make([]map[string]*measurement, len(chunks))
+	results := make([]map[string]*measurement, len(chunks)+1)
 	start := 0
 	for i, chunk := range chunks {
+		// Let each chunk overlap into the next one,
+		// processChunk accounts for this
+		chunkData := data[start : chunk+chunkOverlap]
+
 		go func(data []byte, i int) {
 			results[i] = processChunk(data)
 			wg.Done()
-		}(data[start:chunk], i)
+		}(chunkData, i)
+
 		start = chunk
 	}
+	results[len(results)-1] = parseRow(data[lastRowOffset:])
+
 	wg.Wait()
 
 	measurements := make(map[string]*measurement)
@@ -167,7 +193,8 @@ func processChunk(data []byte) map[string]*measurement {
 	}
 
 	// assume valid input
-	for len(data) > 0 {
+	// data contains chunkOverlap bytes of the next chunk at the end
+	for len(data) > chunkOverlap {
 
 		idHash := uint64(fnv1aOffset64)
 		semiPos := 0
@@ -183,32 +210,22 @@ func processChunk(data []byte) map[string]*measurement {
 		}
 
 		idData := data[:semiPos]
-
 		data = data[semiPos+1:]
 
 		var temp int64
-		// parseNumber
+		// inlined parseNumberLE(x uint64) (int64, int)
 		{
-			negative := data[0] == '-'
-			if negative {
-				data = data[1:]
-			}
+			x := binary.LittleEndian.Uint64(data)
+			negative := (^x & 0x10) >> 4
+			absolute := (x >> (negative << 3))
+			dotPos := bits.TrailingZeros64(^absolute & 0x10_10_00)
+			normShift := (20 - dotPos) & 8
+			normalized := (absolute << normShift) & 0x0f_00_0f_0f
+			value := ((normalized * 0x640a0001) >> 24) & 0x3ff
+			temp = int64((value ^ -negative) + negative)
 
-			_ = data[3]
-			if data[1] == '.' {
-				// 1.2\n
-				temp = int64(data[0])*10 + int64(data[2]) - '0'*(10+1)
-				data = data[4:]
-				// 12.3\n
-			} else {
-				_ = data[4]
-				temp = int64(data[0])*100 + int64(data[1])*10 + int64(data[3]) - '0'*(100+10+1)
-				data = data[5:]
-			}
-
-			if negative {
-				temp = -temp
-			}
+			size := int(negative) + (4 - (normShift >> 3))
+			data = data[size+1:]
 		}
 
 		m := getMeasurement(idHash)
@@ -235,6 +252,26 @@ func processChunk(data []byte) map[string]*measurement {
 		}
 	}
 	return result
+}
+
+// parseRow reads single row from the data
+func parseRow(data []byte) map[string]*measurement {
+	semiPos := bytes.IndexByte(data, ';')
+	if semiPos == -1 || data[len(data)-1] != '\n' {
+		log.Fatalf("invalid data: %s", data)
+	}
+
+	id := string(data[:semiPos])
+	temp := parseNumber(data[semiPos+1 : len(data)-1])
+
+	return map[string]*measurement{
+		id: {
+			min:   temp,
+			max:   temp,
+			sum:   temp,
+			count: 1,
+		},
+	}
 }
 
 func round(x float64) float64 {
@@ -279,4 +316,74 @@ func parseNumber(data []byte) int64 {
 		return -result
 	}
 	return result
+}
+
+// parseNumberLE reads decimal number stored as bytes in little-endian order
+// that matches "^-?[0-9]{1,2}[.][0-9]" pattern,
+// e.g.: -12.3, -3.4, 5.6, 78.9 and returns the value*10, i.e. -123, -34, 56, 789.
+// Inspired by CalculateAverage_merykitty.java parseDataPoint.
+func parseNumberLE(x uint64) (int64, int) {
+	// -99.9___ 5f5f5f39 2e 39 39 2d
+	// -12.3___ 5f5f5f33 2e 32 31 2d
+	// -1.5____ 5f5f5f5f 35 2e 31 2d
+	// -1.0____ 5f5f5f5f 30 2e 31 2d
+	// 0.0_____ 5f5f5f5f 5f 30 2e 30
+	// 0.3_____ 5f5f5f5f 5f 33 2e 30
+	// 12.3____ 5f5f5f5f 33 2e 32 31
+	// 99.9____ 5f5f5f5f 39 2e 39 39
+
+	// digits are 0x3*, '-' is 2d,
+	// so check fifth bit to get sign
+	// * 0 for positive
+	// * 1 for negative
+	negative := (^x & 0x10) >> 4
+
+	// trim '-'
+	absolute := (x >> (negative << 3))
+
+	// digits are 0x3*, '.' is 2e,
+	// so check fifth bit of second and third byte
+	// of absolute value to get dot position
+	// * 20 for two digits
+	// * 12 for one digit
+	dotPos := bits.TrailingZeros64(^absolute & 0x10_10_00)
+
+	// calculate shift to add leading zero.
+	// & 8 eliminates runtime.panicshift check
+	// * 0 for two digits
+	// * 8 for one digit
+	normShift := (20 - dotPos) & 8
+
+	// add leading zero to single digit number
+	// and convert from ascii to BCD
+	// -99.9___ 00000000 09 00 09 09
+	// -12.3___ 00000000 03 00 02 01
+	// -1.5____ 00000000 05 00 01 00
+	// -1.0____ 00000000 00 00 01 00
+	// 0.0_____ 00000000 00 00 00 00
+	// 0.3_____ 00000000 03 00 00 00
+	// 12.3____ 00000000 03 00 02 01
+	// 99.9____ 00000000 09 00 09 09
+	normalized := (absolute << normShift) & 0x0f_00_0f_0f
+
+	// normalized number xy.z is now 00000000 z 00 y x
+	// i.e we have normalized = z*0x01_00_00_00 + y*0x01_00 + x
+	// and we need x*100 + y*10 + z.
+	// TODO: explain this
+	value := ((normalized * 0x640a0001) >> 24) & 0x3ff
+
+	// negative is 0 or 1 so signed is either
+	// value ^ 0 + 0 == value or
+	// value ^ -1 + 1 == -value
+	signed := int64((value ^ -negative) + negative)
+
+	size := int(negative) + (4 - (normShift >> 3))
+
+	if false {
+		b := [8]byte{}
+		binary.LittleEndian.PutUint64(b[:], x)
+		fmt.Printf("%s %016x %016x %d %d %016x %d %d %d\n", b, x, absolute, negative, dotPos, normalized, value, signed, size)
+	}
+
+	return signed, size
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"testing"
@@ -57,6 +58,46 @@ func BenchmarkParseNumber(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		parseNumberSink = parseNumber(data1) + parseNumber(data2)
+	}
+}
+
+func TestParseNumberLE(t *testing.T) {
+	for _, tc := range []struct {
+		value    string
+		expected string
+		size     int
+	}{
+		{value: "-99.9___", expected: "-999", size: 5},
+		{value: "-12.3___", expected: "-123", size: 5},
+		{value: "-1.5____", expected: "-15", size: 4},
+		{value: "-1.0____", expected: "-10", size: 4},
+		{value: "0.0_____", expected: "0", size: 3},
+		{value: "0.3_____", expected: "3", size: 3},
+		{value: "12.3____", expected: "123", size: 4},
+		{value: "99.9____", expected: "999", size: 4},
+	} {
+		x := binary.LittleEndian.Uint64([]byte(tc.value))
+
+		number, size := parseNumberLE(x)
+		if fmt.Sprintf("%d", number) != tc.expected {
+			t.Errorf("Wrong parsing of %v, expected: %s, got: %d", tc.value, tc.expected, number)
+		}
+
+		if size != tc.size {
+			t.Errorf("Wrong parsing of %v, expected size: %d, got: %d", tc.value, tc.size, size)
+		}
+	}
+}
+
+func BenchmarkParseNumberLE(b *testing.B) {
+	x1 := binary.LittleEndian.Uint64([]byte("1.2_____"))
+	x2 := binary.LittleEndian.Uint64([]byte("-12.3___"))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v1, _ := parseNumberLE(x1)
+		v2, _ := parseNumberLE(x2)
+		parseNumberSink = v1 + v2
 	}
 }
 

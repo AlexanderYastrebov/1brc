@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"hash/maphash"
 	"log"
 	"math"
 	"os"
@@ -126,24 +125,60 @@ func process(filename string) map[string]*measurement {
 	return measurements
 }
 
-var maphashSeed = maphash.MakeSeed()
-
 func processChunk(data []byte) map[string]*measurement {
-	// use hash of id as measurements key and keep mapping to the value
-	measurements := make(map[uint64]*measurement)
+	// use uint64 FNV-1a hash of id value as buckets key and keep mapping to the id value.
+	// This assumes no collisions of id hashes.
+	const (
+		// use power of 2 for fast modulo calculation
+		nBuckets = 1 << 12
+		maxIds   = 10_000
+
+		fnv1aOffset64 = 14695981039346656037
+		fnv1aPrime64  = 1099511628211
+	)
+
+	type entry struct {
+		key uint64
+		mid int
+	}
+	buckets := make([][]entry, nBuckets)
+	measurements := make([]measurement, 0, maxIds)
 	ids := make(map[uint64][]byte)
+
+	getMeasurement := func(key uint64) *measurement {
+		i := key & uint64(nBuckets-1)
+		for j := 0; j < len(buckets[i]); j++ {
+			e := &buckets[i][j]
+			if e.key == key {
+				return &measurements[e.mid]
+			}
+		}
+		return nil
+	}
+
+	putMeasurement := func(key uint64, m measurement) {
+		i := key & uint64(nBuckets-1)
+		buckets[i] = append(buckets[i], entry{key: key, mid: len(measurements)})
+		measurements = append(measurements, m)
+	}
 
 	// assume valid input
 	for len(data) > 0 {
-		semiPos := bytes.IndexByte(data, ';')
-		if semiPos == -1 {
-			break
+
+		idHash := uint64(fnv1aOffset64)
+		semiPos := 0
+		for i, b := range data {
+			if b == ';' {
+				semiPos = i
+				break
+			}
+
+			// calculate FNV-1a hash
+			idHash ^= uint64(b)
+			idHash *= fnv1aPrime64
 		}
 
-		_ = data[semiPos] // eliminate bound check
-
 		idData := data[:semiPos]
-		id := maphash.Bytes(maphashSeed, idData)
 
 		data = data[semiPos+1:]
 
@@ -172,26 +207,28 @@ func processChunk(data []byte) map[string]*measurement {
 			}
 		}
 
-		if m, ok := measurements[id]; !ok {
-			measurements[id] = &measurement{
+		m := getMeasurement(idHash)
+		if m == nil {
+			putMeasurement(idHash, measurement{
 				min:   temp,
 				max:   temp,
 				sum:   temp,
 				count: 1,
-			}
-			ids[id] = idData
+			})
+			ids[idHash] = idData
 		} else {
 			m.min = min(m.min, temp)
 			m.max = max(m.max, temp)
 			m.sum += temp
 			m.count++
 		}
-
 	}
 
 	result := make(map[string]*measurement, len(measurements))
-	for id, m := range measurements {
-		result[string(ids[id])] = m
+	for _, bucket := range buckets {
+		for _, entry := range bucket {
+			result[string(ids[entry.key])] = &measurements[entry.mid]
+		}
 	}
 	return result
 }

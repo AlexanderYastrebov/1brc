@@ -21,7 +21,7 @@ func main() {
 		log.Fatalf("Missing measurements filename")
 	}
 
-	measurements := process(os.Args[1])
+	measurements := processFile(os.Args[1])
 
 	ids := make([]string, 0, len(measurements))
 	for id := range measurements {
@@ -40,7 +40,7 @@ func main() {
 	fmt.Println("}")
 }
 
-func process(filename string) map[string]*measurement {
+func processFile(filename string) map[string]*measurement {
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Open: %v", err)
@@ -68,11 +68,15 @@ func process(filename string) map[string]*measurement {
 		}
 	}()
 
+	return process(data)
+}
+
+func process(data []byte) map[string]*measurement {
 	nChunks := runtime.NumCPU()
 
 	chunkSize := len(data) / nChunks
 	if chunkSize == 0 {
-		log.Fatalf("chunk size is zero due to size=%d and nChunks=%d", size, nChunks)
+		log.Fatalf("chunk size is zero due to size=%d and nChunks=%d", len(data), nChunks)
 	}
 
 	chunks := make([]int, 0, nChunks)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -60,11 +61,16 @@ func BenchmarkParseNumber(b *testing.B) {
 }
 
 func BenchmarkProcess(b *testing.B) {
-	// $ ./create_measurements.sh 1000000 && mv measurements.txt measurements-106.txt
+	// $ ./create_measurements.sh 1000000 && mv measurements.txt measurements-1e6.txt
 	// Created file with 1,000,000 measurements in 514 ms
-	const filename = "../../../measurements-106.txt"
+	const filename = "../../../measurements-1e6.txt"
 
-	measurements := process(filename)
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	measurements := process(data)
 	rows := int64(0)
 	for _, m := range measurements {
 		rows += m.count
@@ -75,6 +81,6 @@ func BenchmarkProcess(b *testing.B) {
 	b.ReportMetric(float64(rows), "rows/op")
 
 	for i := 0; i < b.N; i++ {
-		process(filename)
+		process(data)
 	}
 }

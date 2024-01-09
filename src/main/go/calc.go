@@ -81,7 +81,7 @@ func process(data []byte) map[string]*measurement {
 
 	chunks := make([]int, 0, nChunks)
 	offset := 0
-	for {
+	for offset < len(data) {
 		offset += chunkSize
 		if offset >= len(data) {
 			chunks = append(chunks, len(data))

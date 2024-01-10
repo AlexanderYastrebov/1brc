@@ -76,7 +76,7 @@ func process(data []byte) map[string]*measurement {
 
 	chunkSize := len(data) / nChunks
 	if chunkSize == 0 {
-		log.Fatalf("chunk size is zero due to size=%d and nChunks=%d", len(data), nChunks)
+		chunkSize = len(data)
 	}
 
 	chunks := make([]int, 0, nChunks)

@@ -16,8 +16,4 @@
 #
 
 JAVA_OPTS="-XX:+UseParallelGC --enable-preview --add-modules jdk.incubator.vector"
-source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk use java 21.0.1-graal 2>&1>/dev/null
-
-# Run in a subshell to suppress java "WARNING: Using incubator modules: jdk.incubator.vector"
-/usr/bin/time /bin/sh -c "java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_seijikun 2>/dev/null"
+java $JAVA_OPTS --class-path target/average-1.0.0-SNAPSHOT.jar dev.morling.onebrc.CalculateAverage_seijikun

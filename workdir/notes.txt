@@ -1,0 +1,16 @@
+Unique Locations: 413
+
+
+example:
+   Maputo;27.5
+   Sapporo;-3.9
+   Bissau;22.7
+   Philadelphia;20.0
+   Odesa;2.5
+   Belgrade;12.4
+   Gabès;27.3
+   Vienna;6.2
+   Brisbane;17.5
+   Chicago;11.0
+
+output: <city> = <min><mean><max>
